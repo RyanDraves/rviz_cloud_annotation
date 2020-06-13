@@ -138,7 +138,7 @@ class RVizCloudAnnotation
 
   void onRestore(const std_msgs::String & filename_msg)
   {
-    std::string filename = filename_msg.data.empty() ? m_annotation_filename_out : filename_msg.data;
+    std::string filename = filename_msg.data.empty() ? getFilePath(".ann") : filename_msg.data;
     Restore(filename);
   }
 
@@ -236,6 +236,10 @@ class RVizCloudAnnotation
 
   void SendPointCounts(const Uint64Vector & labels);
 
+  void onPcdNav(const std_msgs::UInt32 &direction);
+  void onPrevPointCloud();
+  void onNextPointCloud();
+
   Uint64Vector RangeUint64(const uint64 start,const uint64 end) const
   {
     Uint64Vector result(end - start);
@@ -267,6 +271,9 @@ class RVizCloudAnnotation
   InteractiveMarker CloudToMarker(const PointXYZRGBNormalCloud & cloud,const bool interactive);
 
   private:
+  void updateFileName();
+  std::string getFilePath(const std::string &extension, bool is_label=true);
+
   ros::NodeHandle & m_nh;
   InteractiveMarkerServerPtr m_interactive_marker_server;
   PointXYZRGBNormalCloud::Ptr m_cloud;
@@ -275,6 +282,8 @@ class RVizCloudAnnotation
   RVizCloudAnnotationUndo m_undo_redo;
 
   KdTree::Ptr m_kdtree;
+
+  ros::Subscriber m_pcd_nav_sub;
 
   ros::Subscriber m_set_edit_mode_sub;
   ros::Subscriber m_toggle_none_sub;
@@ -339,10 +348,16 @@ class RVizCloudAnnotation
 
   PointNeighborhood::ConstPtr m_point_neighborhood;
 
-  std::string m_annotation_filename_in;
-  std::string m_annotation_filename_out;
-  std::string m_ann_cloud_filename_out;
-  std::string m_label_names_filename_out;
+  // std::string m_annotation_filename_in;
+  // std::string m_annotation_filename_out;
+  // std::string m_ann_cloud_filename_out;
+  // std::string m_label_names_filename_out;
+
+  size_t m_cloud_index;
+  std::vector<std::string> m_cloud_files;
+  std::string m_workspace_path;
+  std::string m_cur_filename;
+  std::string m_normal_source;
 };
 
 #endif // RVIZ_CLOUD_ANNOTATION_CLASS_H

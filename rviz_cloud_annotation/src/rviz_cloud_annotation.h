@@ -35,31 +35,36 @@
 #ifndef RVIZ_CLOUD_ANNOTATION_H
 #define RVIZ_CLOUD_ANNOTATION_H
 
-#define PARAM_NAME_UPDATE_TOPIC                "update_topic"
-#define PARAM_DEFAULT_UPDATE_TOPIC             "/rviz_cloud_annotation/update_topic"
+#define PARAM_NAME_UPDATE_TOPIC               "update_topic"
+#define PARAM_DEFAULT_UPDATE_TOPIC            "/rviz_cloud_annotation/update_topic"
 
-#define PARAM_NAME_CLOUD_FILENAME             "cloud_filename"
-#define PARAM_DEFAULT_CLOUD_FILENAME          "cloud.pcd"
+#define PARAM_NAME_WORKSPACE_PATH             "workspace_path"
+#define PARAM_DEFAULT_WORKSPACE_PATH          "~/UMA/annotations"
+
+// Old params
+// #define PARAM_NAME_CLOUD_FILENAME             "cloud_filename"
+// #define PARAM_DEFAULT_CLOUD_FILENAME          "cloud.pcd"
 
 #define PARAM_NAME_NORMAL_SOURCE              "normal_source"
 #define PARAM_VALUE_NORMAL_SOURCE_CLOUD       "cloud"        // from PARAM_NAME_CLOUD_FILENAME itself
 #define PARAM_VALUE_NORMAL_SOURCE_OTHER_CLOUD "other_cloud:" // example: "other_cloud:normal_cloud.pcd"
 #define PARAM_DEFAULT_NORMAL_SOURCE           PARAM_VALUE_NORMAL_SOURCE_CLOUD
 
-// will attempt to load this at startup
-#define PARAM_NAME_ANN_FILENAME_IN            "annotation_read_filename"
-#define PARAM_DEFAULT_ANN_FILENAME_IN         "annotation.annotation"
+// Old params
+// // will attempt to load this at startup
+// #define PARAM_NAME_ANN_FILENAME_IN            "annotation_read_filename"
+// #define PARAM_DEFAULT_ANN_FILENAME_IN         "annotation.annotation"
 
-// will save to this when asked by the GUI
-#define PARAM_NAME_ANN_FILENAME_OUT           "annotation_write_filename"
-#define PARAM_DEFAULT_ANN_FILENAME_OUT        "annotation.annotation"
+// // will save to this when asked by the GUI
+// #define PARAM_NAME_ANN_FILENAME_OUT           "annotation_write_filename"
+// #define PARAM_DEFAULT_ANN_FILENAME_OUT        "annotation.annotation"
 
-// will also save this cloud (XYZRGBL)
-#define PARAM_NAME_ANNOTATED_CLOUD            "annotation_cloud"
-#define PARAM_DEFAULT_ANNOTATED_CLOUD         "annotation.pcd"
+// // will also save this cloud (XYZRGBL)
+// #define PARAM_NAME_ANNOTATED_CLOUD            "annotation_cloud"
+// #define PARAM_DEFAULT_ANNOTATED_CLOUD         "annotation.pcd"
 
-#define PARAM_NAME_LABEL_NAMES_FILENAME       "label_names_filename"
-#define PARAM_DEFAULT_LABEL_NAMES_FILENAME    "names.txt"
+// #define PARAM_NAME_LABEL_NAMES_FILENAME       "label_names_filename"
+// #define PARAM_DEFAULT_LABEL_NAMES_FILENAME    "names.txt"
 
 #define PARAM_NAME_AUTOSAVE_TIME              "autosave_time"
 #define PARAM_DEFAULT_AUTOSAVE_TIME           (0.0)   // seconds, < 1.0 to disable
@@ -99,6 +104,9 @@
 #define PARAM_DEFAULT_ZERO_WEIGHT_CP_SHOW     (true)
 
 // from interface to backend
+#define PARAM_NAME_PCD_NAV_TOPIC              "rviz_cloud_annotation/pcd_nav_topic"
+#define PARAM_DEFAULT_PCD_NAV_TOPIC           "/rviz_cloud_annotation/pcd_nav"
+
 #define PARAM_NAME_SET_EDIT_MODE_TOPIC        "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC     "/rviz_cloud_annotation/set_edit_mode"
 
@@ -222,6 +230,9 @@
 // this number of weight steps, plus the step 0
 #define PARAM_NAME_WEIGHT_STEPS               "weight_steps"
 #define PARAM_DEFAULT_WEIGHT_STEPS            (10)
+
+#define PCD_NAV_PREV                          (0)
+#define PCD_NAV_NEXT                          (1)
 
 #define EDIT_MODE_NONE                        (0)
 #define EDIT_MODE_CONTROL_POINT               (1)

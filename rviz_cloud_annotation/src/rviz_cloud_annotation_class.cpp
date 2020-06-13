@@ -37,6 +37,8 @@
 
 // STL
 #include <cstring>
+#include <dirent.h>
+#include <algorithm>
 
 // Boost
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -61,12 +63,38 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_UPDATE_TOPIC,param_string,PARAM_DEFAULT_UPDATE_TOPIC);
   m_interactive_marker_server = InteractiveMarkerServerPtr(new InteractiveMarkerServer(param_string));
 
-  m_nh.param<std::string>(PARAM_NAME_CLOUD_FILENAME,param_string,PARAM_DEFAULT_CLOUD_FILENAME);
-  m_nh.param<std::string>(PARAM_NAME_NORMAL_SOURCE,param_string2,PARAM_DEFAULT_NORMAL_SOURCE);
+  m_nh.param<std::string>(PARAM_NAME_WORKSPACE_PATH, m_workspace_path, PARAM_DEFAULT_WORKSPACE_PATH);
+  if (m_workspace_path.at(m_workspace_path.size() - 1) != '/')
+    m_workspace_path += "/";
+
+  // Load all pcd filenames in workspace
+  DIR *dir;
+  struct dirent *ent;
+  std::cout << "opening " << std::string(m_workspace_path + "/raw/") << std::endl;
+  if ((dir = opendir(std::string(m_workspace_path + "/raw/").c_str())) != NULL)
+  {
+    while ((ent = readdir(dir)) != NULL)
+    {
+      m_cloud_files.push_back(ent->d_name);
+    }
+    closedir(dir);
+  }
+  else
+  {
+    // Could not open directory
+    perror("");
+    std::exit(EXIT_FAILURE);
+  }
+
+  std::sort(m_cloud_files.begin(), m_cloud_files.end());
+  m_cloud_index = 2;  // Entries 0 and 1 are "." and "..", respectively
+  updateFileName();
+
+  m_nh.param<std::string>(PARAM_NAME_NORMAL_SOURCE, m_normal_source, PARAM_DEFAULT_NORMAL_SOURCE);
   m_cloud = PointXYZRGBNormalCloud::Ptr(new PointXYZRGBNormalCloud);
   try
   {
-    LoadCloud(param_string,param_string2,*m_cloud);
+    LoadCloud(getFilePath(".pcd", false), m_normal_source, *m_cloud);
   }
   catch (const std::string & msg)
   {
@@ -168,6 +196,9 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_CLEAR_TOPIC,param_string,PARAM_DEFAULT_CLEAR_TOPIC);
   m_clear_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onClear,this);
 
+  m_nh.param<std::string>(PARAM_NAME_PCD_NAV_TOPIC, param_string, PARAM_DEFAULT_PCD_NAV_TOPIC);
+  m_pcd_nav_sub = m_nh.subscribe(param_string, 1, &RVizCloudAnnotation::onPcdNav, this);
+
   m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
   m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetEditMode,this);
 
@@ -186,10 +217,10 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_POINT_COUNT_UPDATE_TOPIC,param_string,PARAM_DEFAULT_POINT_COUNT_UPDATE_TOPIC);
   m_point_count_update_pub = m_nh.advertise<std_msgs::UInt64MultiArray>(param_string,1,true);
 
-  m_nh.param<std::string>(PARAM_NAME_ANNOTATED_CLOUD,m_ann_cloud_filename_out,PARAM_DEFAULT_ANNOTATED_CLOUD);
-  m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
-  m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_OUT,m_annotation_filename_out,PARAM_DEFAULT_ANN_FILENAME_OUT);
-  m_nh.param<std::string>(PARAM_NAME_LABEL_NAMES_FILENAME,m_label_names_filename_out,PARAM_DEFAULT_LABEL_NAMES_FILENAME);
+  // m_nh.param<std::string>(PARAM_NAME_ANNOTATED_CLOUD,m_ann_cloud_filename_out,PARAM_DEFAULT_ANNOTATED_CLOUD);
+  // m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
+  // m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_OUT,m_annotation_filename_out,PARAM_DEFAULT_ANN_FILENAME_OUT);
+  // m_nh.param<std::string>(PARAM_NAME_LABEL_NAMES_FILENAME,m_label_names_filename_out,PARAM_DEFAULT_LABEL_NAMES_FILENAME);
 
   m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC,param_string,PARAM_DEFAULT_SET_NAME_TOPIC);
   m_set_name_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetName,this);
@@ -258,7 +289,7 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   SendCloudMarker(true);
   SendControlPointMaxWeight();
-  Restore(m_annotation_filename_in);
+  Restore(getFilePath(".ann"));
 
   m_autosave_timer.start();
 }
@@ -556,7 +587,7 @@ void RVizCloudAnnotation::Save(const bool is_autosave)
   if (is_autosave)
     ROS_INFO("rviz_cloud_annotation: auto-saving.");
 
-  std::string filename = m_annotation_filename_out;
+  std::string filename = getFilePath(".ann");
   if (is_autosave && m_autosave_append_timestamp)
     filename = AppendTimestampBeforeExtension(filename);
 
@@ -579,7 +610,7 @@ void RVizCloudAnnotation::Save(const bool is_autosave)
   }
   ROS_INFO("rviz_cloud_annotation: done.");
 
-  std::string cloud_filename = m_ann_cloud_filename_out;
+  std::string cloud_filename = getFilePath(".pcd");
   if (is_autosave && m_autosave_append_timestamp)
     cloud_filename = AppendTimestampBeforeExtension(cloud_filename);
 
@@ -593,7 +624,7 @@ void RVizCloudAnnotation::Save(const bool is_autosave)
   }
   ROS_INFO("rviz_cloud_annotation: done.");
 
-  std::string names_filename = m_label_names_filename_out;
+  std::string names_filename = getFilePath(".txt");
   if (is_autosave && m_autosave_append_timestamp)
     names_filename = AppendTimestampBeforeExtension(names_filename);
 
@@ -1326,4 +1357,67 @@ std::string RVizCloudAnnotation::AppendTimestampBeforeExtension(const std::strin
     return filename + datetime; // the dot is in a directory
 
   return filename.substr(0,last_dot) + datetime + filename.substr(last_dot);
+}
+
+void RVizCloudAnnotation::onPcdNav(const std_msgs::UInt32 &direction)
+{
+  switch (direction.data)
+  {
+    case PCD_NAV_PREV:
+      onPrevPointCloud();
+      break;
+    case PCD_NAV_NEXT:
+      onNextPointCloud();
+      break;
+    default:
+      throw std::exception();
+  }
+}
+
+void RVizCloudAnnotation::onPrevPointCloud()
+{
+  // First two entries in m_cloud_files are "." and ".."
+  if (m_cloud_index <= 2)
+    return;
+
+  Save();
+  --m_cloud_index;
+  updateFileName();
+  LoadCloud(getFilePath(".pcd", false), m_normal_source, *m_cloud);
+  SendCloudMarker(true);
+  SendControlPointMaxWeight();
+  Restore(getFilePath(".ann"));
+}
+
+void RVizCloudAnnotation::onNextPointCloud()
+{
+  if (m_cloud_index >= m_cloud_files.size() - 1)
+    return;
+
+  Save();
+  ++m_cloud_index;
+  updateFileName();
+  LoadCloud(getFilePath(".pcd", false), m_normal_source, *m_cloud);
+  SendCloudMarker(true);
+  SendControlPointMaxWeight();
+  Restore(getFilePath(".ann"));
+}
+
+void RVizCloudAnnotation::updateFileName()
+{
+  std::string cur_raw_pcd = m_cloud_files.at(m_cloud_index);
+
+  const std::size_t last_dot = cur_raw_pcd.rfind('.');
+
+  if (last_dot == std::string::npos)
+    throw std::exception();
+
+  m_cur_filename = cur_raw_pcd.substr(0, last_dot);
+}
+
+std::string RVizCloudAnnotation::getFilePath(const std::string& extension, bool is_label)
+{
+  if (is_label)
+    return m_workspace_path + "labels/" + m_cur_filename + extension;
+  return m_workspace_path + "raw/" + m_cur_filename + extension;
 }

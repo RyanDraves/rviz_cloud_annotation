@@ -78,6 +78,9 @@ namespace rviz_cloud_annotation
       std::string param_string;
       int temp_int;
 
+      m_nh.param<std::string>(PARAM_NAME_PCD_NAV_TOPIC, param_string, PARAM_DEFAULT_PCD_NAV_TOPIC);
+      m_pcd_nav_pub = m_nh.advertise<std_msgs::UInt32>(param_string, 1);
+
       m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
       m_set_edit_mode_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
 
@@ -344,6 +347,25 @@ namespace rviz_cloud_annotation
 
       void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
       connect(m_toolbar_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onSetEditMode);
+    }
+
+    // Pointcloud navigation bar
+    {
+      QBoxLayout* pcd_nav_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(pcd_nav_layout);
+
+      m_pcd_nav_group = new QButtonGroup(this);
+
+      m_prev_pcd_button = new QPushButton("<< Prev",this);
+      pcd_nav_layout->addWidget(m_prev_pcd_button);
+      m_pcd_nav_group->addButton(m_prev_pcd_button, PCD_NAV_PREV);
+
+      m_next_pcd_button = new QPushButton("Next >>",this);
+      pcd_nav_layout->addWidget(m_next_pcd_button);
+      m_pcd_nav_group->addButton(m_next_pcd_button, PCD_NAV_NEXT);
+
+      void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
+      connect(m_pcd_nav_group, button_clicked_function_pointer, this, &QRVizCloudAnnotation::onPcdNav);
     }
 
     {
@@ -966,7 +988,14 @@ namespace rviz_cloud_annotation
     m_prev_page_action->setEnabled(m_current_page > 0);
     m_prev_label_action->setEnabled(m_current_label > 1);
   }
-}
+
+  void QRVizCloudAnnotation::onPcdNav(int direction)
+  {
+    std_msgs::UInt32 pcd_nav_out;
+    pcd_nav_out.data = direction;
+    m_pcd_nav_pub.publish(pcd_nav_out);
+  }
+}  // namespace rviz_cloud_annotation
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(rviz_cloud_annotation::QRVizCloudAnnotation,rviz::Panel);

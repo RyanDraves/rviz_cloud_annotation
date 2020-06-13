@@ -76,6 +76,8 @@ namespace rviz_cloud_annotation
     virtual ~QRVizCloudAnnotation();
 
     private Q_SLOTS:
+    void onPcdNav(int direction);
+
     void onSetEditMode(int mode);
     void onSetToolType(int type);
 
@@ -149,6 +151,9 @@ namespace rviz_cloud_annotation
     uint64 m_current_page;
 
     ros::NodeHandle m_nh;
+
+    ros::Publisher m_pcd_nav_pub;
+
     ros::Publisher m_set_edit_mode_pub;
     ros::Publisher m_set_current_label_pub;
 
@@ -181,6 +186,10 @@ namespace rviz_cloud_annotation
     ros::Subscriber m_control_point_max_weight_sub;
 
     ros::Publisher m_tool_type_pub;
+
+    QPushButton* m_prev_pcd_button;
+    QPushButton* m_next_pcd_button;
+    QButtonGroup* m_pcd_nav_group;
 
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
