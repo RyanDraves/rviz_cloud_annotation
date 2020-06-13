@@ -70,8 +70,7 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   // Load all pcd filenames in workspace
   DIR *dir;
   struct dirent *ent;
-  std::cout << "opening " << std::string(m_workspace_path + "/raw/") << std::endl;
-  if ((dir = opendir(std::string(m_workspace_path + "/raw/").c_str())) != NULL)
+  if ((dir = opendir(std::string(m_workspace_path + "raw/").c_str())) != NULL)
   {
     while ((ent = readdir(dir)) != NULL)
     {
@@ -507,6 +506,7 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
   if (!ifile)
   {
     ROS_ERROR("rviz_cloud_annotation: could not open file: %s",filename.c_str());
+    resetAnnotation();
     return;
   }
 
@@ -520,24 +520,28 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
   catch (const RVizCloudAnnotationPoints::IOE & e)
   {
     ROS_ERROR("rviz_cloud_annotation: could not load file %s, reason: %s.",filename.c_str(),e.description.c_str());
+    resetAnnotation();
     return;
   }
 
-  if (maybe_new_annotation->GetCloudSize() != m_annotation->GetCloudSize())
-  {
-    const uint new_size = maybe_new_annotation->GetCloudSize();
-    const uint old_size = m_annotation->GetCloudSize();
-    ROS_ERROR("rviz_cloud_annotation: file was created for a cloud of size %u, but it is %u. Load operation aborted.",
-              new_size,old_size);
-    return;
-  }
+  // Believed to be a safety check for individual pointclouds; not meant for multiple
+  // if (maybe_new_annotation->GetCloudSize() != m_annotation->GetCloudSize())
+  // {
+  //   const uint new_size = maybe_new_annotation->GetCloudSize();
+  //   const uint old_size = m_annotation->GetCloudSize();
+  //   ROS_ERROR("rviz_cloud_annotation: file was created for a cloud of size %u, but it is %u. Load operation aborted.",
+  //             new_size,old_size);
+  //   resetAnnotation();
+  //   return;
+  // }
 
-  ClearControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),false);
+  uint64 max_size = std::max(maybe_new_annotation->GetNextLabel(), m_annotation->GetNextLabel());
+  ClearControlPointsMarker(RangeUint64(1, m_annotation->GetNextLabel()),false);
   m_annotation = maybe_new_annotation;
   m_undo_redo.SetAnnotation(maybe_new_annotation);
-  SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
+  SendControlPointsMarker(RangeUint64(1, m_annotation->GetNextLabel()),true);
   SendName();
-  SendPointCounts(RangeUint64(1,m_annotation->GetNextLabel()));
+  SendPointCounts(RangeUint64(1, max_size));
   SendUndoRedoState();
 
   ROS_INFO("rviz_cloud_annotation: file loaded.");
@@ -1401,6 +1405,20 @@ void RVizCloudAnnotation::onNextPointCloud()
   SendCloudMarker(true);
   SendControlPointMaxWeight();
   Restore(getFilePath(".ann"));
+}
+
+void RVizCloudAnnotation::resetAnnotation()
+{
+  uint64 old_size = m_annotation->GetNextLabel();
+  ClearControlPointsMarker(RangeUint64(1, m_annotation->GetNextLabel()),false);
+  RVizCloudAnnotationPoints::Ptr default_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(
+    m_cloud->size(),m_control_point_max_weight,m_point_neighborhood));
+  m_annotation = default_annotation;
+  m_undo_redo.SetAnnotation(default_annotation);
+  SendControlPointsMarker(RangeUint64(1, m_annotation->GetNextLabel()),true);
+  SendName();
+  SendPointCounts(RangeUint64(1, old_size));
+  SendUndoRedoState();
 }
 
 void RVizCloudAnnotation::updateFileName()

@@ -271,6 +271,7 @@ class RVizCloudAnnotation
   InteractiveMarker CloudToMarker(const PointXYZRGBNormalCloud & cloud,const bool interactive);
 
   private:
+  void resetAnnotation();
   void updateFileName();
   std::string getFilePath(const std::string &extension, bool is_label=true);
 
