@@ -39,6 +39,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <algorithm>
+#include <stdexcept>
 
 // Boost
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -87,6 +88,7 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   std::sort(m_cloud_files.begin(), m_cloud_files.end());
   m_cloud_index = 2;  // Entries 0 and 1 are "." and "..", respectively
+  // TODO(dravesr@umich.edu): Load this in from a save configuration to resume workspace
   updateFileName();
 
   m_nh.param<std::string>(PARAM_NAME_NORMAL_SOURCE, m_normal_source, PARAM_DEFAULT_NORMAL_SOURCE);
@@ -197,6 +199,9 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   m_nh.param<std::string>(PARAM_NAME_PCD_NAV_TOPIC, param_string, PARAM_DEFAULT_PCD_NAV_TOPIC);
   m_pcd_nav_sub = m_nh.subscribe(param_string, 1, &RVizCloudAnnotation::onPcdNav, this);
+
+  m_nh.param<std::string>(PARAM_NAME_PCD_NAV_STATUS_TOPIC, param_string, PARAM_DEFAULT_PCD_NAV_STATUS_TOPIC);
+  m_pcd_nav_status_pub = m_nh.advertise<std_msgs::ByteMultiArray>(param_string, 1);
 
   m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
   m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetEditMode,this);
@@ -1365,27 +1370,50 @@ std::string RVizCloudAnnotation::AppendTimestampBeforeExtension(const std::strin
 
 void RVizCloudAnnotation::onPcdNav(const std_msgs::UInt32 &direction)
 {
-  switch (direction.data)
-  {
-    case PCD_NAV_PREV:
-      onPrevPointCloud();
-      break;
-    case PCD_NAV_NEXT:
-      onNextPointCloud();
-      break;
-    default:
-      throw std::exception();
-  }
+  changePointCloud(direction.data);
 }
 
-void RVizCloudAnnotation::onPrevPointCloud()
+void RVizCloudAnnotation::changePointCloud(int direction)
 {
   // First two entries in m_cloud_files are "." and ".."
+  std_msgs::ByteMultiArray status;
+  status.data.resize(4, true);
+  if (m_cloud_index <= 11)
+    status.data[0] = false;
   if (m_cloud_index <= 2)
-    return;
+    status.data[1] = false;
+  if (m_cloud_index >= m_cloud_files.size() - 1)
+    status.data[2] = false;
+  if (m_cloud_index >= m_cloud_files.size() - 10)
+    status.data[3] = false;
+  m_pcd_nav_status_pub.publish(status);
+
+  // Return if the requested direction is out of range
+  switch (direction)
+  {
+    case PCD_NAV_PREV_PREV:
+      if (!status.data[0])
+        return;
+      break;
+    case PCD_NAV_PREV:
+      if (!status.data[1])
+        return;
+      break;
+    case PCD_NAV_NEXT:
+      if (!status.data[2])
+        return;
+      break;
+    case PCD_NAV_NEXT_NEXT:
+      if (!status.data[3])
+        return;
+      break;
+    default:
+      ROS_FATAL_STREAM("Unexpectedly got direction " << direction);
+      throw std::runtime_error("Unexpected pcd nav direction");
+  }
 
   Save();
-  --m_cloud_index;
+  m_cloud_index += direction;
   updateFileName();
   LoadCloud(getFilePath(".pcd", false), m_normal_source, *m_cloud);
   SendCloudMarker(true);
@@ -1393,18 +1421,13 @@ void RVizCloudAnnotation::onPrevPointCloud()
   Restore(getFilePath(".ann"));
 }
 
-void RVizCloudAnnotation::onNextPointCloud()
+void RVizCloudAnnotation::onSetName(const std_msgs::String & msg)
 {
-  if (m_cloud_index >= m_cloud_files.size() - 1)
-    return;
-
-  Save();
-  ++m_cloud_index;
-  updateFileName();
-  LoadCloud(getFilePath(".pcd", false), m_normal_source, *m_cloud);
-  SendCloudMarker(true);
-  SendControlPointMaxWeight();
-  Restore(getFilePath(".ann"));
+  // TODO: Manage custom classes to display their markers
+  m_undo_redo.SetNameForLabel(m_current_label,msg.data);
+  ROS_INFO("rviz_cloud_annotation: label %u is now named \"%s\".",uint(m_current_label),msg.data.c_str());
+  SendName();
+  SendUndoRedoState();
 }
 
 void RVizCloudAnnotation::resetAnnotation()
@@ -1428,7 +1451,7 @@ void RVizCloudAnnotation::updateFileName()
   const std::size_t last_dot = cur_raw_pcd.rfind('.');
 
   if (last_dot == std::string::npos)
-    throw std::exception();
+    throw std::runtime_error(std::string("Unexpected file name ") + cur_raw_pcd);
 
   m_cur_filename = cur_raw_pcd.substr(0, last_dot);
 }

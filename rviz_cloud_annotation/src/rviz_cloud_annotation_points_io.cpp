@@ -35,6 +35,8 @@
 #include "rviz_cloud_annotation_points.h"
 #include "rviz_cloud_annotation.h"
 
+#include <iomanip>
+
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_MIN_VERSION (1)
 #define MAGIC_MAX_VERSION (4)

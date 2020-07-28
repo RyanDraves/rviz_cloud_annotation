@@ -58,6 +58,7 @@
 #include <std_msgs/Empty.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/ByteMultiArray.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -210,13 +211,7 @@ class RVizCloudAnnotation
       SetEditMode(EDIT_MODE_NONE);
   }
 
-  void onSetName(const std_msgs::String & msg)
-  {
-    m_undo_redo.SetNameForLabel(m_current_label,msg.data);
-    ROS_INFO("rviz_cloud_annotation: label %u is now named \"%s\".",uint(m_current_label),msg.data.c_str());
-    SendName();
-    SendUndoRedoState();
-  }
+  void onSetName(const std_msgs::String & msg);
 
   void onUndo(const std_msgs::Empty &);
   void onRedo(const std_msgs::Empty &);
@@ -237,8 +232,7 @@ class RVizCloudAnnotation
   void SendPointCounts(const Uint64Vector & labels);
 
   void onPcdNav(const std_msgs::UInt32 &direction);
-  void onPrevPointCloud();
-  void onNextPointCloud();
+  void changePointCloud(int direction);
 
   Uint64Vector RangeUint64(const uint64 start,const uint64 end) const
   {
@@ -285,6 +279,7 @@ class RVizCloudAnnotation
   KdTree::Ptr m_kdtree;
 
   ros::Subscriber m_pcd_nav_sub;
+  ros::Publisher m_pcd_nav_status_pub;
 
   ros::Subscriber m_set_edit_mode_sub;
   ros::Subscriber m_toggle_none_sub;

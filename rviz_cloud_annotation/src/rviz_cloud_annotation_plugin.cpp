@@ -55,8 +55,10 @@
 
 // STL
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <sstream>
+#include <stdexcept>
 
 // ROS
 #include <std_msgs/UInt32.h>
@@ -80,6 +82,9 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_PCD_NAV_TOPIC, param_string, PARAM_DEFAULT_PCD_NAV_TOPIC);
       m_pcd_nav_pub = m_nh.advertise<std_msgs::UInt32>(param_string, 1);
+
+      m_nh.param<std::string>(PARAM_NAME_PCD_NAV_STATUS_TOPIC, param_string, PARAM_DEFAULT_PCD_NAV_STATUS_TOPIC);
+      m_pcd_nav_status_sub = m_nh.subscribe(param_string, 1, &QRVizCloudAnnotation::onPcdNavStatus, this);
 
       m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
       m_set_edit_mode_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
@@ -314,6 +319,33 @@ namespace rviz_cloud_annotation
       }
     }
 
+    // Pointcloud navigation bar
+    {
+      QBoxLayout* pcd_nav_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(pcd_nav_layout);
+
+      m_pcd_nav_group = new QButtonGroup(this);
+
+      m_prev_prev_pcd_button = new QPushButton("<< Prev",this);
+      pcd_nav_layout->addWidget(m_prev_prev_pcd_button);
+      m_pcd_nav_group->addButton(m_prev_prev_pcd_button, PCD_NAV_PREV_PREV_ID);
+
+      m_prev_pcd_button = new QPushButton("Prev",this);
+      pcd_nav_layout->addWidget(m_prev_pcd_button);
+      m_pcd_nav_group->addButton(m_prev_pcd_button, PCD_NAV_PREV_ID);
+
+      m_next_pcd_button = new QPushButton("Next",this);
+      pcd_nav_layout->addWidget(m_next_pcd_button);
+      m_pcd_nav_group->addButton(m_next_pcd_button, PCD_NAV_NEXT_ID);
+
+      m_next_next_pcd_button = new QPushButton("Next >>",this);
+      pcd_nav_layout->addWidget(m_next_next_pcd_button);
+      m_pcd_nav_group->addButton(m_next_next_pcd_button, PCD_NAV_NEXT_NEXT_ID);
+
+      void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
+      connect(m_pcd_nav_group, button_clicked_function_pointer, this, &QRVizCloudAnnotation::onPcdNav);
+    }
+
     {
       QBoxLayout * toolbar_layout = new QBoxLayout(QBoxLayout::LeftToRight);
       main_layout->addLayout(toolbar_layout);
@@ -347,25 +379,6 @@ namespace rviz_cloud_annotation
 
       void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
       connect(m_toolbar_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onSetEditMode);
-    }
-
-    // Pointcloud navigation bar
-    {
-      QBoxLayout* pcd_nav_layout = new QBoxLayout(QBoxLayout::LeftToRight);
-      main_layout->addLayout(pcd_nav_layout);
-
-      m_pcd_nav_group = new QButtonGroup(this);
-
-      m_prev_pcd_button = new QPushButton("<< Prev",this);
-      pcd_nav_layout->addWidget(m_prev_pcd_button);
-      m_pcd_nav_group->addButton(m_prev_pcd_button, PCD_NAV_PREV);
-
-      m_next_pcd_button = new QPushButton("Next >>",this);
-      pcd_nav_layout->addWidget(m_next_pcd_button);
-      m_pcd_nav_group->addButton(m_next_pcd_button, PCD_NAV_NEXT);
-
-      void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
-      connect(m_pcd_nav_group, button_clicked_function_pointer, this, &QRVizCloudAnnotation::onPcdNav);
     }
 
     {
@@ -493,6 +506,33 @@ namespace rviz_cloud_annotation
       connect(weight_slider,&QSlider::sliderMoved,this,&QRVizCloudAnnotation::onControlPointWeightSliderMoved);
       connect(weight_slider,&QSlider::valueChanged,this,&QRVizCloudAnnotation::onControlPointWeightSliderSet);
       connect(weight_slider,&QSlider::valueChanged,this,&QRVizCloudAnnotation::onControlPointWeightSliderMoved);
+    }
+
+    // Classification layout
+    {
+      QBoxLayout* classification_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(classification_layout);
+
+      m_classification_group = new QButtonGroup(this);
+
+      m_sphere_buoy_button = new QPushButton("Sphere",this);
+      classification_layout->addWidget(m_sphere_buoy_button);
+      m_classification_group->addButton(m_sphere_buoy_button, ID_SPHERE_BUOY);
+
+      m_cylinder_buoy_button = new QPushButton("Cylinder",this);
+      classification_layout->addWidget(m_cylinder_buoy_button);
+      m_classification_group->addButton(m_cylinder_buoy_button, ID_CYLINDER_BUOY);
+      
+      m_dock_button = new QPushButton("Dock",this);
+      classification_layout->addWidget(m_dock_button);
+      m_classification_group->addButton(m_dock_button, ID_DOCK);
+      
+      m_unknown_button = new QPushButton("Unknown",this);
+      classification_layout->addWidget(m_unknown_button);
+      m_classification_group->addButton(m_unknown_button, ID_UNKNOWN);
+
+      void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
+      connect(m_classification_group, button_clicked_function_pointer, this, &QRVizCloudAnnotation::onSetClassification);
     }
 
     {
@@ -992,8 +1032,63 @@ namespace rviz_cloud_annotation
   void QRVizCloudAnnotation::onPcdNav(int direction)
   {
     std_msgs::UInt32 pcd_nav_out;
-    pcd_nav_out.data = direction;
+    switch (direction)
+    {
+      case PCD_NAV_PREV_PREV_ID:
+        pcd_nav_out.data = PCD_NAV_PREV_PREV;
+        break;
+      case PCD_NAV_PREV_ID:
+        pcd_nav_out.data = PCD_NAV_PREV;
+        break;
+      case PCD_NAV_NEXT_ID:
+        pcd_nav_out.data = PCD_NAV_NEXT;
+        break;
+      case PCD_NAV_NEXT_NEXT_ID:
+        pcd_nav_out.data = PCD_NAV_NEXT_NEXT;
+        break;
+      default:
+        ROS_FATAL_STREAM("Unexpectedly got button ID " << direction);
+        throw std::runtime_error("Unexpected button ID");
+    }
     m_pcd_nav_pub.publish(pcd_nav_out);
+  }
+
+  void QRVizCloudAnnotation::onPcdNavStatus(const std_msgs::ByteMultiArray &msg)
+  {
+    if (msg.data.size() < 4)
+    {
+      ROS_FATAL_STREAM("Expected 4 button statuses, got " << msg.data.size());
+      throw std::runtime_error("Unexpected number of button status updates");
+    }
+
+    m_prev_prev_pcd_button->setDown(msg.data[0]);
+    m_prev_pcd_button->setDown(msg.data[1]);
+    m_next_pcd_button->setDown(msg.data[2]);
+    m_next_next_pcd_button->setDown(msg.data[3]);
+  }
+
+  void QRVizCloudAnnotation::onSetClassification(int classification)
+  {
+    // This will loop back around to onSetName() to update the text field
+    std_msgs::String msg;
+    switch (classification)
+    {
+      case ID_SPHERE_BUOY:
+        msg.data = NAME_SPHERE_BUOY;
+        break;
+      case ID_CYLINDER_BUOY:
+        msg.data = NAME_CYLINDER_BUOY;
+        break;
+      case ID_DOCK:
+        msg.data = NAME_DOCK;
+        break;
+      case ID_UNKNOWN:
+        msg.data = NAME_UNKNOWN;
+        break;
+      default:
+        throw std::runtime_error("Unexpected classification");
+    }
+    m_set_name_pub.publish(msg);
   }
 }  // namespace rviz_cloud_annotation
 

@@ -106,6 +106,8 @@
 // from interface to backend
 #define PARAM_NAME_PCD_NAV_TOPIC              "rviz_cloud_annotation/pcd_nav_topic"
 #define PARAM_DEFAULT_PCD_NAV_TOPIC           "/rviz_cloud_annotation/pcd_nav"
+#define PARAM_NAME_PCD_NAV_STATUS_TOPIC       "rviz_cloud_annotation/pcd_nav_status_topic"
+#define PARAM_DEFAULT_PCD_NAV_STATUS_TOPIC    "/rviz_cloud_annotation/pcd_nav_status"
 
 #define PARAM_NAME_SET_EDIT_MODE_TOPIC        "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC     "/rviz_cloud_annotation/set_edit_mode"
@@ -231,8 +233,23 @@
 #define PARAM_NAME_WEIGHT_STEPS               "weight_steps"
 #define PARAM_DEFAULT_WEIGHT_STEPS            (10)
 
-#define PCD_NAV_PREV                          (0)
+#define PCD_NAV_PREV_PREV_ID                  (0)
+#define PCD_NAV_PREV_PREV                     (-10)
+#define PCD_NAV_PREV_ID                       (1)
+#define PCD_NAV_PREV                          (-1)
+#define PCD_NAV_NEXT_ID                       (2)
 #define PCD_NAV_NEXT                          (1)
+#define PCD_NAV_NEXT_NEXT_ID                  (3)
+#define PCD_NAV_NEXT_NEXT                     (10)
+
+#define ID_SPHERE_BUOY                        (0)
+#define NAME_SPHERE_BUOY                      "sphere buoy"
+#define ID_CYLINDER_BUOY                      (1)
+#define NAME_CYLINDER_BUOY                    "cylinder buoy"
+#define ID_DOCK                               (2)
+#define NAME_DOCK                             "dock"
+#define ID_UNKNOWN                            (3)
+#define NAME_UNKNOWN                          "unknown"
 
 #define EDIT_MODE_NONE                        (0)
 #define EDIT_MODE_CONTROL_POINT               (1)

@@ -41,6 +41,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/UInt64MultiArray.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/ByteMultiArray.h>
 
 #include <stdint.h>
 #include <vector>
@@ -77,6 +78,9 @@ namespace rviz_cloud_annotation
 
     private Q_SLOTS:
     void onPcdNav(int direction);
+    void onPcdNavStatus(const std_msgs::ByteMultiArray &msg);
+    
+    void onSetClassification(int classification);
 
     void onSetEditMode(int mode);
     void onSetToolType(int type);
@@ -153,6 +157,7 @@ namespace rviz_cloud_annotation
     ros::NodeHandle m_nh;
 
     ros::Publisher m_pcd_nav_pub;
+    ros::Subscriber m_pcd_nav_status_sub;
 
     ros::Publisher m_set_edit_mode_pub;
     ros::Publisher m_set_current_label_pub;
@@ -187,9 +192,17 @@ namespace rviz_cloud_annotation
 
     ros::Publisher m_tool_type_pub;
 
+    QPushButton* m_prev_prev_pcd_button;
     QPushButton* m_prev_pcd_button;
     QPushButton* m_next_pcd_button;
+    QPushButton* m_next_next_pcd_button;
     QButtonGroup* m_pcd_nav_group;
+
+    QPushButton* m_sphere_buoy_button;
+    QPushButton* m_cylinder_buoy_button;
+    QPushButton* m_dock_button;
+    QPushButton* m_unknown_button;
+    QButtonGroup* m_classification_group;
 
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
