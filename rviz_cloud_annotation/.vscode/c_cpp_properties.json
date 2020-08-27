@@ -1,0 +1,37 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/uma/UMA/UMARepo/devel/include/**",
+                "/home/uma/UMA/UMAThirdParty/devel/include/**",
+                "/opt/ros/noetic/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/srv_tools/bag_tools/include/**",
+                "/home/uma/UMA/UMARepo/src/lib/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/ros_marvelmind_package/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/serial/include/**",
+                "/home/uma/UMA/UMARepo/src/controls/uma_controls/include/**",
+                "/home/uma/UMA/UMARepo/src/navigation/uma_navigation/include/**",
+                "/home/uma/UMA/UMARepo/src/perception/uma_perception/include/**",
+                "/home/uma/UMA/UMARepo/src/reasoning/uma_reasoning/include/**",
+                "/home/uma/UMA/UMARepo/src/tools/uma_tools/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/uma_virtual_robot_x/usv_gazebo_plugins/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/velodyne/velodyne_driver/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/velodyne_simulator/velodyne_gazebo_plugins/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/velodyne/velodyne_laserscan/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/velodyne/velodyne_pointcloud/include/**",
+                "/home/uma/UMA/UMAThirdParty/src/uma_virtual_robot_x/vrx_gazebo/include/**",
+                "/usr/include/**"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "gnu++14"
+        }
+    ],
+    "version": 4
+}

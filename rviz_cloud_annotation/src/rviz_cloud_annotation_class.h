@@ -41,6 +41,7 @@
 #include "rviz_cloud_annotation_undo.h"
 #include <rviz_cloud_annotation/UndoRedoState.h>
 #include <rviz_cloud_annotation/RectangleSelectionViewport.h>
+#include "uma_interactive_markers.h"
 
 // STL
 #include <stdint.h>
@@ -268,6 +269,7 @@ class RVizCloudAnnotation
   void resetAnnotation();
   void updateFileName();
   std::string getFilePath(const std::string &extension, bool is_label=true);
+  geometry_msgs::Pose getAveragePosition(const std::vector<uint64> &indices);
 
   ros::NodeHandle & m_nh;
   InteractiveMarkerServerPtr m_interactive_marker_server;
@@ -275,6 +277,8 @@ class RVizCloudAnnotation
 
   RVizCloudAnnotationPoints::ConstPtr m_annotation;
   RVizCloudAnnotationUndo m_undo_redo;
+  UMAInteractiveMarkers m_uma_markers;
+  std::map<std::string, UMAInteractiveMarkers::OBJECTS> m_uma_labels_map;
 
   KdTree::Ptr m_kdtree;
 
@@ -349,7 +353,7 @@ class RVizCloudAnnotation
   // std::string m_ann_cloud_filename_out;
   // std::string m_label_names_filename_out;
 
-  size_t m_cloud_index;
+  int m_cloud_index;
   std::vector<std::string> m_cloud_files;
   std::string m_workspace_path;
   std::string m_cur_filename;

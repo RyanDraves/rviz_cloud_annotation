@@ -1055,16 +1055,16 @@ namespace rviz_cloud_annotation
 
   void QRVizCloudAnnotation::onPcdNavStatus(const std_msgs::ByteMultiArray &msg)
   {
-    if (msg.data.size() < 4)
+    if (msg.data.size() != 4)
     {
       ROS_FATAL_STREAM("Expected 4 button statuses, got " << msg.data.size());
       throw std::runtime_error("Unexpected number of button status updates");
     }
 
-    m_prev_prev_pcd_button->setDown(msg.data[0]);
-    m_prev_pcd_button->setDown(msg.data[1]);
-    m_next_pcd_button->setDown(msg.data[2]);
-    m_next_next_pcd_button->setDown(msg.data[3]);
+    m_prev_prev_pcd_button->setEnabled(msg.data[0]);
+    m_prev_pcd_button->setEnabled(msg.data[1]);
+    m_next_pcd_button->setEnabled(msg.data[2]);
+    m_next_next_pcd_button->setEnabled(msg.data[3]);
   }
 
   void QRVizCloudAnnotation::onSetClassification(int classification)

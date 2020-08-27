@@ -39,11 +39,11 @@
 
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_MIN_VERSION (1)
-#define MAGIC_MAX_VERSION (4)
+#define MAGIC_MAX_VERSION (5)
 
 RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile,
-                                                                      const uint32 weight_steps,
-                                                                      PointNeighborhood::ConstPtr neighborhood)
+  const uint32 weight_steps, PointNeighborhood::ConstPtr neighborhood,
+  UMAInteractiveMarkers &uma_markers, const std::map<std::string, UMAInteractiveMarkers::OBJECTS> & uma_labels_map)
 {
   if (!ifile)
     throw IOE("Invalid file stream.");
@@ -201,6 +201,32 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
         throw IOE("Unexpected EOF while reading text label content " + boost::lexical_cast<std::string>(i) + ".");
       std::string str((const char *)(data.data()));
       result.m_ext_label_names[i] = str;
+      if (version >= 5)
+      {
+        uint8_t marker_flag;
+        ifile.read((char *)&marker_flag, sizeof(marker_flag));
+        if (!ifile)
+          throw IOE("Unexpected EOF while reading text marker flag " + boost::lexical_cast<std::string>(i) + ".");
+        if (marker_flag)
+        {
+          geometry_msgs::Pose marker_pose;
+          ifile.read((char *)&marker_pose.position.x, sizeof(double));
+          ifile.read((char *)&marker_pose.position.y, sizeof(double));
+          ifile.read((char *)&marker_pose.position.z, sizeof(double));
+          ifile.read((char *)&marker_pose.orientation.w, sizeof(double));
+          ifile.read((char *)&marker_pose.orientation.x, sizeof(double));
+          ifile.read((char *)&marker_pose.orientation.y, sizeof(double));
+          ifile.read((char *)&marker_pose.orientation.z, sizeof(double));
+          if (!ifile)
+            throw IOE("Unexpected EOF while reading text marker pose " + boost::lexical_cast<std::string>(i) + ".");
+
+          auto iter = uma_labels_map.find(str);
+          if (iter != uma_labels_map.end())
+          {
+            uma_markers.make6DofMarker(i + 1, marker_pose, iter->second, true);  // Random index-by-1 idk not my problem
+          }
+        }
+      }
     }
   }
 
@@ -210,7 +236,7 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
   return resultptr;
 }
 
-void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
+void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile, const UMAInteractiveMarkers &uma_markers) const
 {
   if (!ofile)
     throw IOE("Invalid file stream.");
@@ -261,6 +287,19 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
     uint32 string_size = m_ext_label_names[i].size();
     ofile.write((char *)&string_size,sizeof(string_size));
     ofile.write(m_ext_label_names[i].c_str(),string_size);
+    auto marker = uma_markers.getMarker(i + 1);  // Random index-by-1 idk not my problem
+    uint8_t marker_flag = marker ? 1 : 0;
+    ofile.write((char *)&marker_flag, sizeof(marker_flag));
+    if (marker)
+    {
+      ofile.write((char *)&marker->pose.position.x, sizeof(double));
+      ofile.write((char *)&marker->pose.position.y, sizeof(double));
+      ofile.write((char *)&marker->pose.position.z, sizeof(double));
+      ofile.write((char *)&marker->pose.orientation.w, sizeof(double));
+      ofile.write((char *)&marker->pose.orientation.x, sizeof(double));
+      ofile.write((char *)&marker->pose.orientation.y, sizeof(double));
+      ofile.write((char *)&marker->pose.orientation.z, sizeof(double));
+    }
   }
 
   if (!ofile)

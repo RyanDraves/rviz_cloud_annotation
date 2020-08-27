@@ -54,6 +54,8 @@
 
 #include "point_neighborhood.h"
 #include "rviz_cloud_annotation_point_plane.h"
+#include "uma_interactive_markers.h"
+
 
 class RVizCloudAnnotationPoints
 {
@@ -98,8 +100,10 @@ class RVizCloudAnnotationPoints
 
   static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile,
     const uint32 weight_steps,
-    PointNeighborhood::ConstPtr neighborhood);
-  void Serialize(std::ostream & ofile) const;
+    PointNeighborhood::ConstPtr neighborhood,
+    UMAInteractiveMarkers &uma_markers,
+    const std::map<std::string, UMAInteractiveMarkers::OBJECTS> & uma_labels_map);
+  void Serialize(std::ostream & ofile, const UMAInteractiveMarkers &uma_markers) const;
 
   // returns the list of affected labels
   Uint64Vector SetControlPoint(const uint64 point_id,const uint32 weight_step,const uint64 label);
@@ -150,6 +154,17 @@ class RVizCloudAnnotationPoints
     if (label > GetMaxLabel())
       return 0;
     return m_control_points_for_label[label - 1].size();
+  }
+
+  Uint64Vector GetLabelIndices(uint64 label) const
+  {
+    auto some_stupid_indirection_crap = m_control_points_for_label[label - 1];
+    Uint64Vector result;
+    for (auto index : some_stupid_indirection_crap)
+    {
+      result.push_back(m_control_points[index - 1].point_id);  // Of COURSE it's switching between index-by-0 and index-by-1
+    }
+    return result;
   }
 
   template <class PointT>

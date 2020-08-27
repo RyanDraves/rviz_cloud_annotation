@@ -49,6 +49,9 @@
 
 // ROS
 #include <eigen_conversions/eigen_msg.h>
+#include <tf2_eigen/tf2_eigen.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #define CLOUD_MARKER_NAME            "cloud"
 #define CONTROL_POINT_MARKER_PREFIX  "control_points_"
@@ -63,6 +66,14 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   m_nh.param<std::string>(PARAM_NAME_UPDATE_TOPIC,param_string,PARAM_DEFAULT_UPDATE_TOPIC);
   m_interactive_marker_server = InteractiveMarkerServerPtr(new InteractiveMarkerServer(param_string));
+  m_uma_markers.init( m_interactive_marker_server);
+  m_uma_labels_map =
+  {
+    { NAME_SPHERE_BUOY, UMAInteractiveMarkers::OBJECTS::SPHERE },
+    { NAME_CYLINDER_BUOY, UMAInteractiveMarkers::OBJECTS::CYLINDER },
+    { NAME_DOCK, UMAInteractiveMarkers::OBJECTS::DOCK },
+    { NAME_UNKNOWN, UMAInteractiveMarkers::OBJECTS::UNKNOWN }
+  };
 
   m_nh.param<std::string>(PARAM_NAME_WORKSPACE_PATH, m_workspace_path, PARAM_DEFAULT_WORKSPACE_PATH);
   if (m_workspace_path.at(m_workspace_path.size() - 1) != '/')
@@ -412,7 +423,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   cloud_marker.type = Marker::POINTS;
   cloud_marker.scale.x = label_size;
   cloud_marker.scale.y = label_size;
-  cloud_marker.scale.z = label_size;
+  cloud_marker.scale.z = 0.0;
   cloud_marker.color.r = color.r / 255.0;
   cloud_marker.color.g = color.g / 255.0;
   cloud_marker.color.b = color.b / 255.0;
@@ -507,6 +518,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::CloudToMarker(const 
 
 void RVizCloudAnnotation::Restore(const std::string & filename)
 {
+  ROS_INFO_STREAM("Opening file " << filename);
   std::ifstream ifile(filename.c_str());
   if (!ifile)
   {
@@ -520,7 +532,9 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
   RVizCloudAnnotationPoints::Ptr maybe_new_annotation;
   try
   {
-    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile,m_control_point_max_weight,m_point_neighborhood);
+    m_uma_markers.removeAllMarkers();
+    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(
+      ifile, m_control_point_max_weight, m_point_neighborhood, m_uma_markers, m_uma_labels_map);
   }
   catch (const RVizCloudAnnotationPoints::IOE & e)
   {
@@ -611,7 +625,7 @@ void RVizCloudAnnotation::Save(const bool is_autosave)
 
   try
   {
-    m_annotation->Serialize(ofile);
+    m_annotation->Serialize(ofile, m_uma_markers);
   }
   catch (const RVizCloudAnnotationPoints::IOE & e)
   {
@@ -641,7 +655,9 @@ void RVizCloudAnnotation::Save(const bool is_autosave)
   {
     std::ofstream ofile(names_filename.c_str());
     for (uint64 i = 1; i < m_annotation->GetNextLabel(); i++)
+    {
       ofile << i << ": " << m_annotation->GetNameForLabel(i) << "\n";
+    }
     if (!ofile)
       ROS_ERROR("rviz_cloud_annotation: could not write file.");
   }
@@ -1136,7 +1152,8 @@ void RVizCloudAnnotation::onRectangleSelectionViewport(const rviz_cloud_annotati
   Eigen::Affine3f camera_pose;
   {
     Eigen::Affine3d camera_pose_d;
-    tf::poseMsgToEigen(msg.camera_pose,camera_pose_d);
+    // tf::poseMsgToEigen(msg.camera_pose,camera_pose_d);
+    tf2::fromMsg(msg.camera_pose, camera_pose_d);
     camera_pose = camera_pose_d.cast<float>();
   }
   const Eigen::Affine3f camera_pose_inv = camera_pose.inverse();
@@ -1375,6 +1392,9 @@ void RVizCloudAnnotation::onPcdNav(const std_msgs::UInt32 &direction)
 
 void RVizCloudAnnotation::changePointCloud(int direction)
 {
+  Save();
+  m_cloud_index += direction;
+
   // First two entries in m_cloud_files are "." and ".."
   std_msgs::ByteMultiArray status;
   status.data.resize(4, true);
@@ -1389,31 +1409,12 @@ void RVizCloudAnnotation::changePointCloud(int direction)
   m_pcd_nav_status_pub.publish(status);
 
   // Return if the requested direction is out of range
-  switch (direction)
+  if (m_cloud_index < 2 || m_cloud_index >= m_cloud_files.size())
   {
-    case PCD_NAV_PREV_PREV:
-      if (!status.data[0])
-        return;
-      break;
-    case PCD_NAV_PREV:
-      if (!status.data[1])
-        return;
-      break;
-    case PCD_NAV_NEXT:
-      if (!status.data[2])
-        return;
-      break;
-    case PCD_NAV_NEXT_NEXT:
-      if (!status.data[3])
-        return;
-      break;
-    default:
-      ROS_FATAL_STREAM("Unexpectedly got direction " << direction);
-      throw std::runtime_error("Unexpected pcd nav direction");
+    m_cloud_index -= direction;
+    return;
   }
 
-  Save();
-  m_cloud_index += direction;
   updateFileName();
   LoadCloud(getFilePath(".pcd", false), m_normal_source, *m_cloud);
   SendCloudMarker(true);
@@ -1425,6 +1426,13 @@ void RVizCloudAnnotation::onSetName(const std_msgs::String & msg)
 {
   // TODO: Manage custom classes to display their markers
   m_undo_redo.SetNameForLabel(m_current_label,msg.data);
+  auto iter = m_uma_labels_map.find(msg.data);
+  if (iter != m_uma_labels_map.end())
+  {
+    auto label_indices = m_annotation->GetLabelIndices(m_current_label);
+    geometry_msgs::Pose average_position = getAveragePosition(label_indices);
+    m_uma_markers.make6DofMarker(m_current_label, average_position, iter->second, true);
+  }
   ROS_INFO("rviz_cloud_annotation: label %u is now named \"%s\".",uint(m_current_label),msg.data.c_str());
   SendName();
   SendUndoRedoState();
@@ -1461,4 +1469,28 @@ std::string RVizCloudAnnotation::getFilePath(const std::string& extension, bool 
   if (is_label)
     return m_workspace_path + "labels/" + m_cur_filename + extension;
   return m_workspace_path + "raw/" + m_cur_filename + extension;
+}
+
+geometry_msgs::Pose RVizCloudAnnotation::getAveragePosition(const std::vector<uint64> &indices)
+{
+  geometry_msgs::Pose result;
+  double total_x = 0, total_y = 0, total_z = 0;
+
+  for (const auto index : indices)
+  {
+    total_x += m_cloud->points.at(index).x;
+    total_y += m_cloud->points.at(index).y;
+    total_z += m_cloud->points.at(index).z;
+  }
+
+  result.position.x = total_x / indices.size();
+  result.position.y = total_y / indices.size();
+  result.position.z = total_z / indices.size();
+
+  tf2::Quaternion some_stupid_quaternion_error;
+  some_stupid_quaternion_error.setRPY(0, 0, 0);
+  some_stupid_quaternion_error.normalize();
+  tf2::convert(result.orientation, some_stupid_quaternion_error);
+
+  return result;
 }
