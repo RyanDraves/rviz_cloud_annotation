@@ -1424,7 +1424,6 @@ void RVizCloudAnnotation::changePointCloud(int direction)
 
 void RVizCloudAnnotation::onSetName(const std_msgs::String & msg)
 {
-  // TODO: Manage custom classes to display their markers
   m_undo_redo.SetNameForLabel(m_current_label,msg.data);
   auto iter = m_uma_labels_map.find(msg.data);
   if (iter != m_uma_labels_map.end())
